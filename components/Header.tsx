@@ -7,9 +7,10 @@ interface HeaderProps {
     directoryHandle: FileSystemDirectoryHandle | null;
     onSelectFolder: () => void;
     onClearFolder: () => void;
+    isFolderPickerAvailable: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ directoryHandle, onSelectFolder, onClearFolder }) => {
+export const Header: React.FC<HeaderProps> = ({ directoryHandle, onSelectFolder, onClearFolder, isFolderPickerAvailable }) => {
     return (
         <header className="flex-shrink-0 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50 p-4">
             <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
@@ -32,7 +33,9 @@ export const Header: React.FC<HeaderProps> = ({ directoryHandle, onSelectFolder,
                     ) : (
                          <button 
                             onClick={onSelectFolder}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-sm font-medium"
+                            disabled={!isFolderPickerAvailable}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={isFolderPickerAvailable ? "Select a project folder" : "Folder selection is not available in this environment."}
                          >
                             <FolderIcon className="w-5 h-5"/>
                             <span>Select Folder</span>

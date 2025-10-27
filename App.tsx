@@ -1,11 +1,18 @@
-// Fix: Add global type declaration for window.showDirectoryPicker to fix TypeScript error.
+// Fix: Resolved TypeScript errors by using declaration merging for the global AIStudio type.
+// The previous inline type for `window.aistudio` conflicted with an existing global definition.
+// This change augments the `AIStudio` interface with the `selectDirectory` method,
+// which resolves the type conflict and the missing property error.
 declare global {
     interface Window {
         showDirectoryPicker: (options?: { mode: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
+        aistudio?: AIStudio;
+    }
+    interface AIStudio {
+        selectDirectory: (options?: { mode: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
     }
 }
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { generateCode } from './services/geminiService';
 import { getDirectoryContents, saveFileInDirectory } from './utils/fileSystem';
 import { Header } from './components/Header';
@@ -24,29 +31,39 @@ const App: React.FC = () => {
     const [error, setError] = useState<AppError | null>(null);
     const [hasStarted, setHasStarted] = useState<boolean>(false);
     const [directoryHandle, setDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
+    const [isFolderPickerAvailable, setIsFolderPickerAvailable] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (window.aistudio?.selectDirectory) {
+            setIsFolderPickerAvailable(true);
+        }
+    }, []);
 
     const handleSelectFolder = useCallback(async () => {
         console.log('[handleSelectFolder] Function called.');
 
-        if (!('showDirectoryPicker' in window)) {
-            console.error('[handleSelectFolder] File System Access API (showDirectoryPicker) is not supported in this browser.');
+        const selectDirectory = window.aistudio?.selectDirectory;
+
+        if (!selectDirectory) {
+            console.error('[handleSelectFolder] The required aistudio.selectDirectory API is not available.');
             setError({
-                title: 'Browser Not Supported',
-                message: 'Your browser does not support the File System Access API, which is required for folder selection. Please use a recent version of Chrome, Edge, or Opera.'
+                title: 'Feature Not Supported',
+                message: 'This application is running in an environment that does not support local folder access. This feature is disabled.'
             });
             return;
         }
-        console.log('[handleSelectFolder] File System Access API is supported.');
+        
+        console.log('[handleSelectFolder] Using aistudio.selectDirectory API.');
 
         try {
             console.log("[handleSelectFolder] Requesting directory picker with mode: 'readwrite'.");
-            const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            const handle = await selectDirectory({ mode: 'readwrite' });
             console.log('[handleSelectFolder] Successfully received directory handle:', handle);
             setDirectoryHandle(handle);
             setError(null); // Clear previous errors on success
         } catch (err) {
-            console.error('[handleSelectFolder] Caught an error during showDirectoryPicker call.');
-            console.error('[handleSelectFolder] Full error object:', err); // Log the full error object
+            console.error('[handleSelectFolder] Caught an error during aistudio.selectDirectory call.');
+            console.error('[handleSelectFolder] Full error object:', err);
 
             if (err instanceof Error) {
                  console.log(`[handleSelectFolder] Error is an instance of Error. Name: ${err.name}, Message: ${err.message}`);
@@ -59,7 +76,7 @@ const App: React.FC = () => {
                      console.log('[handleSelectFolder] SecurityError detected. Setting UI error message.');
                     setError({
                         title: 'Permission Denied',
-                        message: `Access to the file system was blocked, likely by your browser's security settings. Please go to your browser's site settings for this page and ensure that <strong>'File and folder access'</strong> is set to 'Allow'. You may need to refresh the page after changing the setting.`
+                        message: `Access to the file system was denied by the environment. Please ensure you have granted the necessary permissions.`
                     });
                 } else {
                     console.log('[handleSelectFolder] An unexpected but known error type occurred. Setting UI error message.');
@@ -132,6 +149,7 @@ const App: React.FC = () => {
                 directoryHandle={directoryHandle}
                 onSelectFolder={handleSelectFolder}
                 onClearFolder={handleClearFolder}
+                isFolderPickerAvailable={isFolderPickerAvailable}
             />
             <ChatWindow 
                 response={response} 
