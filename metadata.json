@@ -1,0 +1,5 @@
+{
+  "name": "Gemini Coding Assistant",
+  "description": "An intelligent coding assistant powered by Gemini. Ask any coding question, get explanations, code snippets, and best practices in a clean, developer-friendly interface.",
+  "requestFramePermissions": []
+}
