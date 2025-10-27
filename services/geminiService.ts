@@ -1,7 +1,7 @@
-
 import { GoogleGenAI } from "@google/genai";
 
 const SYSTEM_INSTRUCTION = `You are an expert coding assistant named Gemini Code Helper.
+- When provided with a project context (file structure and code), use it to inform your response. You can suggest creating new files, modifying existing ones, or deleting them.
 - Provide clear, concise, and correct code examples.
 - Format your entire response in GitHub-flavored Markdown.
 - Use code fences with language identifiers for all code blocks.

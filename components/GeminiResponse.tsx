@@ -1,10 +1,11 @@
-
 import React from 'react';
 import { CodeBlock } from './CodeBlock';
 import { RobotIcon } from './icons/RobotIcon';
 
 interface GeminiResponseProps {
     content: string;
+    directoryHandle: FileSystemDirectoryHandle | null;
+    onSaveFile: (filePath: string, content: string) => Promise<boolean>;
 }
 
 const TextBlock: React.FC<{ text: string }> = ({ text }) => {
@@ -33,7 +34,7 @@ const TextBlock: React.FC<{ text: string }> = ({ text }) => {
     );
 };
 
-export const GeminiResponse: React.FC<GeminiResponseProps> = ({ content }) => {
+export const GeminiResponse: React.FC<GeminiResponseProps> = ({ content, directoryHandle, onSaveFile }) => {
     const parts = content.split(/(```[\s\S]*?```)/g);
 
     return (
@@ -48,7 +49,13 @@ export const GeminiResponse: React.FC<GeminiResponseProps> = ({ content }) => {
                         const firstNewLineIndex = codeBlock.indexOf('\n');
                         const language = codeBlock.substring(0, firstNewLineIndex).trim();
                         const code = codeBlock.substring(firstNewLineIndex + 1);
-                        return <CodeBlock key={index} code={code} language={language} />;
+                        return <CodeBlock 
+                                    key={index} 
+                                    code={code} 
+                                    language={language} 
+                                    directoryHandle={directoryHandle}
+                                    onSaveFile={onSaveFile}
+                                />;
                     } else if (part.trim()) {
                         return <TextBlock key={index} text={part} />;
                     }
