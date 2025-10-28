@@ -34,7 +34,7 @@ const App: React.FC = () => {
     const [isFolderPickerAvailable, setIsFolderPickerAvailable] = useState<boolean>(false);
 
     useEffect(() => {
-        if (window.aistudio?.selectDirectory) {
+        if (window.aistudio?.selectDirectory || window.showDirectoryPicker) {
             setIsFolderPickerAvailable(true);
         }
     }, []);
@@ -42,27 +42,29 @@ const App: React.FC = () => {
     const handleSelectFolder = useCallback(async () => {
         console.log('[handleSelectFolder] Function called.');
 
-        const selectDirectory = window.aistudio?.selectDirectory;
-
-        if (!selectDirectory) {
-            console.error('[handleSelectFolder] The required aistudio.selectDirectory API is not available.');
-            setError({
-                title: 'Feature Not Supported',
-                message: 'This application is running in an environment that does not support local folder access. This feature is disabled.'
-            });
-            return;
-        }
-        
-        console.log('[handleSelectFolder] Using aistudio.selectDirectory API.');
-
         try {
-            console.log("[handleSelectFolder] Requesting directory picker with mode: 'readwrite'.");
-            const handle = await selectDirectory({ mode: 'readwrite' });
+            let handle: FileSystemDirectoryHandle;
+            
+            if (window.aistudio?.selectDirectory) {
+                console.log("[handleSelectFolder] Using aistudio.selectDirectory API.");
+                handle = await window.aistudio.selectDirectory({ mode: 'readwrite' });
+            } else if (window.showDirectoryPicker) {
+                console.log("[handleSelectFolder] Using window.showDirectoryPicker API.");
+                handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            } else {
+                console.error('[handleSelectFolder] No supported directory picker API is available.');
+                setError({
+                    title: 'Feature Not Supported',
+                    message: 'This application is running in an environment that does not support local folder access. This feature is disabled.'
+                });
+                return;
+            }
+            
             console.log('[handleSelectFolder] Successfully received directory handle:', handle);
             setDirectoryHandle(handle);
             setError(null); // Clear previous errors on success
         } catch (err) {
-            console.error('[handleSelectFolder] Caught an error during aistudio.selectDirectory call.');
+            console.error('[handleSelectFolder] Caught an error during directory picker call.');
             console.error('[handleSelectFolder] Full error object:', err);
 
             if (err instanceof Error) {
@@ -76,7 +78,7 @@ const App: React.FC = () => {
                      console.log('[handleSelectFolder] SecurityError detected. Setting UI error message.');
                     setError({
                         title: 'Permission Denied',
-                        message: `Access to the file system was denied by the environment. Please ensure you have granted the necessary permissions.`
+                        message: `Access to the file system was denied. This can happen if the page does not have focus when the folder picker is opened. Please try again.`
                     });
                 } else {
                     console.log('[handleSelectFolder] An unexpected but known error type occurred. Setting UI error message.');
