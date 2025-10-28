@@ -8,9 +8,10 @@ interface CodeBlockProps {
     language?: string;
     directoryHandle: FileSystemDirectoryHandle | null;
     onSaveFile: (filePath: string, content: string) => Promise<boolean>;
+    suggestedFilePath?: string | null;
 }
 
-export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language, directoryHandle, onSaveFile }) => {
+export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language, directoryHandle, onSaveFile, suggestedFilePath }) => {
     const [isCopied, setIsCopied] = useState(false);
     const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
@@ -22,7 +23,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language, directoryH
     }, [code]);
 
     const handleSave = useCallback(async () => {
-        const filePath = window.prompt("Enter file path to save (e.g., src/components/Button.tsx):", "");
+        const filePath = window.prompt("Enter file path to save:", suggestedFilePath || "");
         if (filePath) {
             setSaveState('saving');
             const success = await onSaveFile(filePath, code);
@@ -34,7 +35,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language, directoryH
                 setTimeout(() => setSaveState('idle'), 3000);
             }
         }
-    }, [code, onSaveFile]);
+    }, [code, onSaveFile, suggestedFilePath]);
 
     const getSaveButtonContent = () => {
         switch (saveState) {

@@ -9,33 +9,98 @@ interface GeminiResponseProps {
 }
 
 const TextBlock: React.FC<{ text: string }> = ({ text }) => {
-    // Basic markdown-like substitutions
-    const renderLine = (line: string) => {
+    const lines = text.trim().split('\n');
+    const elements: React.ReactNode[] = [];
+    let listType: 'ul' | 'ol' | null = null;
+    let listItems: React.ReactNode[] = [];
+
+    const flushList = () => {
+        if (listItems.length > 0) {
+            if (listType === 'ul') {
+                elements.push(<ul key={`ul-${elements.length}`} className="list-disc pl-5 space-y-2">{listItems}</ul>);
+            }
+            if (listType === 'ol') {
+                elements.push(<ol key={`ol-${elements.length}`} className="list-decimal pl-5 space-y-2">{listItems}</ol>);
+            }
+        }
+        listItems = [];
+        listType = null;
+    };
+
+    const renderLineContent = (line: string) => {
         line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         line = line.replace(/__(.*?)__/g, '<strong>$1</strong>');
         line = line.replace(/\*(.*?)\*/g, '<em>$1</em>');
         line = line.replace(/_(.*?)_/g, '<em>$1</em>');
         line = line.replace(/`(.*?)`/g, '<code class="bg-gray-700/50 rounded px-1.5 py-1 font-mono text-sm text-cyan-300">$1</code>');
-        return <p dangerouslySetInnerHTML={{ __html: line }} />;
+        return <span dangerouslySetInnerHTML={{ __html: line }} />;
     };
+
+    lines.forEach((line, i) => {
+        const isUl = line.trim().startsWith('- ');
+        const isOl = /^\d+\.\s/.test(line.trim());
+
+        if (isUl) {
+            if (listType !== 'ul') flushList();
+            listType = 'ul';
+            listItems.push(<li key={i}>{renderLineContent(line.substring(2))}</li>);
+        } else if (isOl) {
+            if (listType !== 'ol') flushList();
+            listType = 'ol';
+            listItems.push(<li key={i}>{renderLineContent(line.replace(/^\d+\.\s/, ''))}</li>);
+        } else {
+            flushList();
+            if (line.trim()) {
+                elements.push(<p key={i}>{renderLineContent(line)}</p>);
+            }
+        }
+    });
+
+    flushList();
 
     return (
         <div className="prose prose-invert max-w-none text-gray-300 leading-7 space-y-4">
-            {text.trim().split('\n').map((line, i) => {
-                if (line.trim().startsWith('- ')) {
-                    return <ul key={i} className="list-disc pl-5"><li className="pl-2">{renderLine(line.substring(2))}</li></ul>
-                }
-                if (/^\d+\.\s/.test(line.trim())) {
-                    return <ol key={i} className="list-decimal pl-5"><li className="pl-2">{renderLine(line.replace(/^\d+\.\s/, ''))}</li></ol>
-                }
-                return <div key={i}>{renderLine(line)}</div>;
-            })}
+            {elements}
         </div>
     );
 };
 
+
 export const GeminiResponse: React.FC<GeminiResponseProps> = ({ content, directoryHandle, onSaveFile }) => {
     const parts = content.split(/(```[\s\S]*?```)/g);
+    const filePathRegex = /`((?:\.?\/)?[\w\d-]+\/)*[\w\d-]+\.\w+`/g;
+    
+    let suggestedFilePath: string | null = null;
+    const renderedParts = [];
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (part.startsWith('```') && part.endsWith('```')) {
+            const codeBlock = part.slice(3, -3);
+            const firstNewLineIndex = codeBlock.indexOf('\n');
+            const language = codeBlock.substring(0, firstNewLineIndex).trim();
+            const code = codeBlock.substring(firstNewLineIndex + 1);
+            
+            renderedParts.push(
+                <CodeBlock
+                    key={i}
+                    code={code}
+                    language={language}
+                    directoryHandle={directoryHandle}
+                    onSaveFile={onSaveFile}
+                    suggestedFilePath={suggestedFilePath}
+                />
+            );
+            suggestedFilePath = null; 
+        } else if (part.trim()) {
+            const matches = [...part.matchAll(filePathRegex)];
+            if (matches.length > 0) {
+                const lastMatch = matches[matches.length - 1][0];
+                suggestedFilePath = lastMatch.replace(/`/g, '');
+            }
+            renderedParts.push(<TextBlock key={i} text={part} />);
+        }
+    }
 
     return (
          <div className="flex items-start gap-4">
@@ -43,24 +108,7 @@ export const GeminiResponse: React.FC<GeminiResponseProps> = ({ content, directo
                 <RobotIcon className="w-5 h-5 text-cyan-400" />
             </div>
             <div className="flex-1 space-y-6">
-                {parts.map((part, index) => {
-                    if (part.startsWith('```') && part.endsWith('```')) {
-                        const codeBlock = part.slice(3, -3);
-                        const firstNewLineIndex = codeBlock.indexOf('\n');
-                        const language = codeBlock.substring(0, firstNewLineIndex).trim();
-                        const code = codeBlock.substring(firstNewLineIndex + 1);
-                        return <CodeBlock 
-                                    key={index} 
-                                    code={code} 
-                                    language={language} 
-                                    directoryHandle={directoryHandle}
-                                    onSaveFile={onSaveFile}
-                                />;
-                    } else if (part.trim()) {
-                        return <TextBlock key={index} text={part} />;
-                    }
-                    return null;
-                })}
+                {renderedParts.length > 0 ? renderedParts : <TextBlock text={content} />}
             </div>
         </div>
     );
